@@ -3,15 +3,15 @@ var BUFFCrowdsale = artifacts.require("./BUFFCrowdsale.sol");
 
 contract('BUFFCrowdsale', (accounts) => {
     var contract;
-    var owner = "0x250565aBd53EfeF39c8619b98c2420b85228474C";
-    var rate = 15*140;
+    var owner = "0x250AF0D95B2C467234A3fEa315869FFE421Ca5c0";
+    var rate = 10000000;
     var buyWei = 5 * 10**17;
-    var rateNew = 15*140;
+    var rateNew = 10000000;
     var buyWeiNew = 5 * 10**17;
     var buyWeiMin = 3 * 10**15;
-    var buyWeiCap = 600 * 10**24;
+    var buyWeiCap = 800 * 10**24;
 
-    var totalSupply = 8e+25;
+    var totalSupply = 2e+26;
 
     it('should deployed contract', async ()  => {
         assert.equal(undefined, contract);
@@ -25,7 +25,9 @@ contract('BUFFCrowdsale', (accounts) => {
 
     it('verification balance owner contract', async ()  => {
         var balanceOwner = await contract.balanceOf(owner);
+        var newTotalSupply = await contract.totalSupply.call();
         //console.log("balanceOwner = " + balanceOwner);
+        assert.equal(totalSupply, newTotalSupply);
         assert.equal(totalSupply, balanceOwner);
     });
 
@@ -38,8 +40,9 @@ contract('BUFFCrowdsale', (accounts) => {
 */
 
 
+
     it('verification of receiving Ether', async ()  => {
-        var tokenAllocatedBefore = await contract.tokenAllocated.call();
+        var tokenAllocatedBefore = await contract.totalSupply.call();
         var balanceAccountTwoBefore = await contract.balanceOf(accounts[2]);
         var weiRaisedBefore = await contract.weiRaised.call();
         //console.log("tokenAllocatedBefore = " + tokenAllocatedBefore);
@@ -49,17 +52,16 @@ contract('BUFFCrowdsale', (accounts) => {
         //console.log("numberTokens = " + numberToken);
 
         await contract.buyTokens(accounts[2],{from:accounts[2], value:buyWei});
-        var tokenAllocatedAfter = await contract.tokenAllocated.call();
+        var tokenAllocatedAfter = await contract.totalSupply.call();
         //console.log("tokenAllocatedAfter = " + tokenAllocatedAfter);
 
-        assert.isTrue(tokenAllocatedBefore < tokenAllocatedAfter);
-        assert.equal(0, tokenAllocatedBefore);
-        assert.equal(rate*buyWei, tokenAllocatedAfter);
+        assert.isTrue(Number(tokenAllocatedBefore) < Number(tokenAllocatedAfter));
+        assert.equal(totalSupply, tokenAllocatedBefore);
 
         var balanceAccountTwoAfter = await contract.balanceOf(accounts[2]);
-        assert.isTrue(balanceAccountTwoBefore < balanceAccountTwoAfter);
+        assert.isTrue(Number(balanceAccountTwoBefore) < Number(balanceAccountTwoAfter));
         assert.equal(0, balanceAccountTwoBefore);
-        assert.equal(rate*buyWei, balanceAccountTwoAfter);
+        assert.equal(Number(rate*buyWei), Number(balanceAccountTwoAfter));
 
         var weiRaisedAfter = await contract.weiRaised.call();
         //console.log("weiRaisedAfter = " + weiRaisedAfter);
@@ -81,15 +83,8 @@ contract('BUFFCrowdsale', (accounts) => {
 
         var balanceOwnerAfter = await contract.balanceOf(owner);
         //console.log("balanceOwnerAfter = " + Number(balanceOwnerAfter));
-        //assert.equal(totalSupply - balanceAccountThreeAfter - balanceAccountTwoAfter, balanceOwnerAfter);
-
-
-    });
-
-    it('verification tokens limit min amount', async ()  => {
-            var numberTokensMinWey = await contract.validPurchaseTokens.call(buyWeiMin);
-            //console.log("numberTokensMinWey = " + numberTokensMinWey);
-            assert.equal(0, numberTokensMinWey);
+        //assert.equal(Number(totalSupply) - Number(balanceAccountThreeAfter) - Number(balanceAccountTwoAfter), Number(balanceOwnerAfter));
+        assert.equal(Number(totalSupply),Number(balanceOwnerAfter));
     });
 
     it('verification tokens cap reached', async ()  => {

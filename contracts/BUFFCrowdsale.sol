@@ -203,6 +203,7 @@ contract StandardToken is ERC20, BasicToken {
  */
 contract Ownable {
     address public owner;
+    address public ownerTwo;
 
     event OwnerChanged(address indexed previousOwner, address indexed newOwner);
 
@@ -218,7 +219,7 @@ contract Ownable {
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner || msg.sender == ownerTwo);
         _;
     }
 
@@ -227,10 +228,10 @@ contract Ownable {
      * @dev Allows the current owner to transfer control of the contract to a newOwner.
      * @param newOwner The address to transfer ownership to.
      */
-    function changeOwner(address newOwner) onlyOwner internal {
+    function changeOwnerTwo(address newOwner) onlyOwner public {
         require(newOwner != address(0));
         OwnerChanged(owner, newOwner);
-        owner = newOwner;
+        ownerTwo = newOwner;
     }
 
 }
@@ -264,11 +265,11 @@ contract MintableToken is StandardToken, Ownable {
      * @param _amount The amount of tokens to mint.
      * @return A boolean that indicates if the operation was successful.
      */
-    function mint(address _to, uint256 _amount, address _owner) canMint internal returns (bool) {
+    function mint(address _to, uint256 _amount) canMint internal returns (bool) {
         balances[_to] = balances[_to].add(_amount);
-        balances[_owner] = balances[_owner].sub(_amount);
+        //balances[_owner] = balances[_owner].sub(_amount);
         Mint(_to, _amount);
-        Transfer(_owner, _to, _amount);
+        //Transfer(_owner, _to, _amount);
         return true;
     }
 
@@ -291,11 +292,9 @@ contract MintableToken is StandardToken, Ownable {
             owner.transfer(this.balance);
             return;
         }
-
         MintableToken token = MintableToken(_token);
         uint256 balance = token.balanceOf(this);
         token.transfer(owner, balance);
-
         Transfer(_token, owner, balance);
     }
 }
@@ -322,17 +321,15 @@ contract Crowdsale is Ownable {
 
     function Crowdsale(
     uint256 _startTimeICO,
-    uint256 _endTimeICO,
     address _wallet
     )
     public
     {
         require(_startTimeICO >= now);
-        require(_endTimeICO > _startTimeICO);
         require(_wallet != address(0));
 
         startTimeICO = _startTimeICO;
-        endTimeICO = _endTimeICO;
+        endTimeICO = _startTimeICO + 4 weeks;
         wallet = _wallet;
     }
 }
@@ -348,24 +345,23 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     uint256 public maxTotalSupply = 1 * (10**9) * (10**uint256(decimals));
     uint256 public constant INITIAL_SUPPLY = 200 * (10 ** 6) * (10 ** uint256(decimals));
-    uint256 public fundForSale = 800 * (10 ** 6) * (10 ** uint256(decimals));
+    uint256 public fundForTeam = 200 * (10 ** 6) * (10 ** uint256(decimals));
 
     uint256 public countInvestor;
 
     event TokenPurchase(address indexed beneficiary, uint256 value, uint256 amount);
     event TokenLimitReached(uint256 tokenRaised, uint256 purchasedToken);
     event Finalized();
+    event Burn(address indexed burner, uint256 value);
 
     function BUFFCrowdsale(
     uint256 _startTimeICO,
-    uint256 _endTimeICO,
     address _owner,
     address _wallet
     )
     public
-    Crowdsale(_startTimeICO, _endTimeICO, _wallet)
+    Crowdsale(_startTimeICO, _wallet)
     {
-
         require(_wallet != address(0));
         require(_owner != address(0));
         owner = _owner;
@@ -373,8 +369,8 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
         mintingFinished = false;
         state = State.Active;
         totalSupply = INITIAL_SUPPLY;
-        bool resultMintForOwner = mintForOwner(owner);
-        require(resultMintForOwner);
+        bool resultMintForTeam = mintForTeam(owner);
+        require(resultMintForTeam);
     }
 
     modifier inState(State _state) {
@@ -396,13 +392,11 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
     function buyTokens(address _investor) public inState(State.Active) canBuffMint payable returns (uint256){
         require(_investor != address(0));
         uint256 weiAmount = msg.value;
-        require(weiAmount < weiMaximum);
         uint256 tokens = validPurchaseTokens(weiAmount);
         if (tokens == 0) {revert();}
         weiRaised = weiRaised.add(weiAmount);
         totalSupply = totalSupply.add(tokens);
-        mint(_investor, tokens, owner);
-
+        mint(_investor, tokens);
         TokenPurchase(_investor, weiAmount, tokens);
         if (deposited[_investor] == 0) {
             countInvestor = countInvestor.add(1);
@@ -413,17 +407,12 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
     }
 
 
-    function getTotalAmountOfTokens(uint256 _weiAmount) internal returns (uint256 amountOfTokens) {
+    function getTotalAmountOfTokens(uint256 _weiAmount) internal view returns (uint256 amountOfTokens) {
         uint256 currentTokenRate = 10;
         uint256 currentDate = now;
-        //uint256 currentDate = 1518249620;
-        require(currentDate >= startTimeICO);
-        if (currentDate >= startTimeICO && currentDate < endTimeICO) {
-            currentTokenRate = _weiAmount.mul(15 * 140);
-            return currentTokenRate;
-        } else {
-            currentTokenRate = 0;
-        }
+        //uint256 currentDate = 1519776000; //Feb 28, 2018
+        require(currentDate >= startTimeICO && currentDate < endTimeICO);
+        currentTokenRate = _weiAmount.mul(10000000);
         return currentTokenRate;
     }
 
@@ -432,10 +421,10 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
         deposited[investor] = deposited[investor].add(msg.value);
     }
 
-    function mintForOwner(address _wallet) internal returns (bool result) {
+    function mintForTeam(address _wallet) internal returns (bool result) {
         result = false;
         require(_wallet != address(0));
-        balances[_wallet] = balances[_wallet].add(INITIAL_SUPPLY);
+        balances[_wallet] = balances[_wallet].add(fundForTeam);
         result = true;
     }
 
@@ -445,7 +434,7 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function validPurchaseTokens(uint256 _weiAmount) public inState(State.Active) returns (uint256) {
         uint256 addTokens = getTotalAmountOfTokens(_weiAmount);
-        if (totalSupply.add(addTokens) > fundForSale) {
+        if (totalSupply.add(addTokens) > maxTotalSupply) {
             TokenLimitReached(totalSupply, addTokens);
             return 0;
         }
