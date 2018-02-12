@@ -315,13 +315,15 @@ contract Crowdsale is Ownable {
     uint256 internal endTimeICO;
     // address where funds are collected
     address public wallet;
+    address public walletTwo;
 
     // amount of raised money in wei
     uint256 public weiRaised;
 
     function Crowdsale(
     uint256 _startTimeICO,
-    address _wallet
+    address _wallet,
+    address _walletTwo
     )
     public
     {
@@ -331,6 +333,7 @@ contract Crowdsale is Ownable {
         startTimeICO = _startTimeICO;
         endTimeICO = _startTimeICO + 4 weeks;
         wallet = _wallet;
+        walletTwo = _walletTwo;
     }
 }
 
@@ -357,14 +360,17 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
     function BUFFCrowdsale(
     uint256 _startTimeICO,
     address _owner,
-    address _wallet
+    address _ownerTwo,
+    address _wallet,
+    address _walletTwo
     )
     public
-    Crowdsale(_startTimeICO, _wallet)
+    Crowdsale(_startTimeICO, _wallet, _walletTwo)
     {
-        require(_wallet != address(0));
-        require(_owner != address(0));
+        require(_wallet != address(0) && _walletTwo != address(0));
+        require(_owner  != address(0) && _ownerTwo  != address(0));
         owner = _owner;
+        ownerTwo = _ownerTwo;
         transfersEnabled = true;
         mintingFinished = false;
         state = State.Active;
@@ -402,7 +408,10 @@ contract BUFFCrowdsale is Ownable, Crowdsale, MintableToken {
             countInvestor = countInvestor.add(1);
         }
         deposit(_investor);
-        wallet.transfer(weiAmount);
+        uint256 weiAmountWallet = (75 * weiAmount).div(100);
+        uint256 weiAmountWalletTwo = weiAmount.sub(weiAmountWallet);
+        wallet.transfer(weiAmountWallet);
+        walletTwo.transfer(weiAmountWalletTwo);
         return tokens;
     }
 
